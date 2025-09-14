@@ -1,6 +1,6 @@
 # HTPC Download Box
 
-Sonarr / Radarr / Jackett / NZBGet / Deluge / OpenVPN / Plex
+Sonarr / Radarr / Prowlarr / NZBGet / Deluge / OpenVPN / Plex
 
 TV shows and movies download, sort, with the desired quality and subtitles, behind a VPN (optional), ready to watch, in a beautiful media player.
 All automated.
@@ -26,9 +26,9 @@ All automated.
       - [Introduction](#introduction)
       - [privateinternetaccess.com custom setup](#privateinternetaccesscom-custom-setup)
       - [Docker container](#docker-container-1)
-    - [Setup Jackett](#setup-jackett)
+    - [Setup Prowlarr](#setup-prowlarr)
       - [Docker container](#docker-container-2)
-      - [Configuration and usage](#configuration-and-usage)
+      - [Configuration and usage](#configuration-and-usage-1)
     - [Setup NZBGet](#setup-nzbget)
       - [Docker container](#docker-container-3)
       - [Configuration and usage](#configuration-and-usage)
@@ -48,6 +48,9 @@ All automated.
     - [Setup Bazarr](#setup-bazarr)
       - [Bazarr Docker container](#bazarr-docker-container)
       - [Bazarr Configuration](#bazarr-configuration)
+  - [Setup Overseerr](#setup-overseerr)
+      - [Overseerr Docker container](#overseerr-docker-container)
+      - [Overseerr Configuration](#overseerr-configuration)
   - [Manage it all from your mobile](#manage-it-all-from-your-mobile)
   - [Going Further](#going-further)
 
@@ -84,9 +87,9 @@ Sonarr and Radarr can both rely on two different ways to download files:
 I'm using both systems simultaneously, torrents being used only when a release is not found on newsgroups, or when the server is down. At some point I might switch to torrents only, which work really fine as well.
 
 Files are searched automatically by Sonarr/Radarr through a list of _indexers_ that you have to configure. Indexers are APIs that allow searching for particular releases organized by categories. Think browsing the Pirate Bay programmatically. This is a pretty common feature for newsgroups indexers that respect a common API (called `Newznab`).
-However this common protocol does not really exist for torrent indexers. That's why we'll be using another tool called [Jackett](https://github.com/Jackett/Jackett). You can consider it as a local proxy API for the most popular torrent indexers. It searches and parse information from heterogeneous websites.
+However this common protocol does not really exist for torrent indexers. That's why we'll be using another tool called [Prowlarr](https://prowlarr.com/). Prowlarr is a modern indexer manager that supports both torrent and usenet indexers, automatically syncing them to your *arr applications.
 
-![Jackett indexers](img/jackett_indexers.png)
+![Prowlarr indexers](img/prowlarr_indexers.png)
 
 The best release matching your criteria is selected by Sonarr/Radarr (eg. non-blacklisted 1080p release with enough seeds). Then the download is passed on to another set of tools.
 
@@ -132,8 +135,9 @@ You can also use a Raspberry Pi, a Synology NAS, a Windows or Mac computer. The 
 
 - [Deluge](http://deluge-torrent.org): torrent downloader with a web UI
 - [NZBGet](https://nzbget.net): usenet downloader with a web UI
-- [Jackett](https://github.com/Jackett/Jackett): API to search torrents from multiple indexers
+- [Prowlarr](https://prowlarr.com/): Indexer manager/proxy for both torrent and usenet indexers with seamless integration to Sonarr/Radarr
 - [Bazarr](https://www.bazarr.media/): A companion tool for Radarr and Sonarr which will automatically pull subtitles for all of your TV and movie downloads.
+- [Overseerr](https://overseerr.dev/): A request management and media discovery tool built to work with your existing Plex ecosystem.
 
 **Download orchestration**:
 
@@ -258,7 +262,7 @@ The running deluge daemon should be automatically detected and appear as online,
 ![Deluge daemon](img/deluge_daemon.png)
 
 You may want to change the download directory. I like to have to distinct directories for incomplete (ongoing) downloads, and complete (finished) ones.
-Also, I set up a blackhole directory: every torrent file in there will be downloaded automatically. This is useful for Jackett manual searches.
+Also, I set up a blackhole directory: every torrent file in there will be downloaded automatically. This is useful for manual torrent downloads.
 
 You should activate `autoadd` in the plugins section: it adds supports for `.magnet` files.
 
@@ -386,18 +390,18 @@ Get the torrent magnet link there, put it in Deluge, wait a bit, then you should
 
 ![Torrent guard](img/torrent_guard.png)
 
-### Setup Jackett
+### Setup Prowlarr
 
-[Jackett](https://github.com/Jackett/Jackett) translates request from Sonarr and Radarr to searches for torrents on popular torrent websites, even though those website do not have a sandard common APIs (to be clear: it parses html for many of them :)).
+[Prowlarr](https://prowlarr.com/) is an indexer manager/proxy built on the popular *arr .net/reactjs base stack to integrate with your various PVR apps. Prowlarr supports both Torrent Trackers and Usenet Indexers and integrates seamlessly with Sonarr, Radarr, Lidarr, and Readarr offering complete management of your indexers with no per app Indexer setup required.
 
 #### Docker container
 
-No surprise: let's use linuxserver.io container !
+We'll use the LinuxServer.io Prowlarr image, which follows the same patterns as our other containers:
 
 ```yaml
-jackett:
-  container_name: jackett
-  image: linuxserver/jackett:latest
+prowlarr:
+  container_name: prowlarr
+  image: linuxserver/prowlarr:latest
   restart: unless-stopped
   network_mode: host
   environment:
@@ -405,29 +409,35 @@ jackett:
     - PGID=${PGID} # default group id, defined in .env
     - TZ=${TZ} # timezone, defined in .env
   volumes:
-    - /etc/localtime:/etc/localtime:ro
-    - ${ROOT}/downloads/torrent-blackhole:/downloads # place where to put .torrent files for manual download
-    - ${ROOT}/config/jackett:/config # config files
+    - ${ROOT}/config/prowlarr:/config # config files
 ```
 
-Nothing particular in this configuration, it's pretty similar to other linuxserver.io images.
-An interesting setting is the torrent blackhole directory. When you do manual searches, Jackett will put `.torrent` files there, to be grabbed by your torrent client directly (Deluge for instance).
-
-As usual, run with `docker-compose up -d`.
+Start the container with `docker-compose up -d prowlarr`.
 
 #### Configuration and usage
 
-Jackett web UI is available on port 9117.
+Prowlarr's web UI is available on port 9696. Navigate to `localhost:9696` (replace `localhost` with your server's IP if needed).
 
-![Jacket empty providers list](img/jackett_empty.png)
+![Prowlarr Dashboard](img/prowlarr_dashboard.png)
 
-Configuration is available at the bottom of the page. I chose to disable auto-update (I'll rely on the docker images tags myself), and to set `/downloads` as my blackhole directory.
+The initial setup involves:
 
-Click on `Add Indexer` and add any torrent indexer that you like. I added 1337x, cpasbien, RARBG, The Pirate Bay and YGGTorrent (need a user/password).
+1. **Add Indexers**: Click `Add Indexer` to add both torrent trackers and usenet indexers. Prowlarr has built-in support for hundreds of indexers including:
+   - Public torrent sites: 1337x, RARBG, The Pirate Bay, YTS
+   - Private trackers: PassThePopcorn, IPTorrents, TorrentLeech
+   - Usenet indexers: NZBgeek, NZBcat, DogNZB
 
-You can now perform a manual search across multiple torrent indexers in a clean interface with no trillion ads pop-up everywhere. Then choose to save the .torrent file to the configured blackhole directory, ready to be picked up by Deluge automatically !
+2. **Configure Apps**: Go to `Settings` → `Apps` and add your Sonarr and Radarr instances:
+   - **Sonarr**: Enter URL (`http://localhost:8989`) and API key
+   - **Radarr**: Enter URL (`http://localhost:7878`) and API key
 
-![Jacket manual search](img/jackett_manual.png)
+3. **Sync**: Once apps are configured, Prowlarr will automatically sync all your indexers to Sonarr and Radarr. No manual Torznab configuration needed!
+
+4. **Health Checks**: Prowlarr automatically monitors indexer health and will disable failing indexers, keeping your setup optimized.
+
+The beauty of Prowlarr is that you configure indexers once, and they automatically appear in all your *arr applications. No more manually copying Torznab URLs or API keys between applications!
+
+![Prowlarr Indexers](img/prowlarr_indexers.png)
 
 ### Setup NZBGet
 
@@ -576,11 +586,11 @@ In `profiles` you can set new quality profiles, default ones are fairly good. Th
 
 `Indexers` is the important tab: that's where Sonarr will grab information about released episodes. Nowadays a lot of Usenet indexers are relying on Newznab protocol: fill-in the URL and API key you are using. You can find some indexers on this [subreddit wiki](https://www.reddit.com/r/usenet/wiki/indexers). It's nice to use several ones since there are quite volatile. You can find suggestions on Sonarr Newznab presets. Some of these indexers provide free accounts with a limited number of API calls, you'll have to pay to get more. Usenet-crawler is one of the best free indexers out there.
 
-For torrents indexers, I activate Torznab custom indexers that point to my local Jackett service. This allows searches across all torrent indexers configured in Jackett. You have to configure them one by one though.
+For torrent indexers, Prowlarr automatically syncs all configured indexers to Sonarr once you add your Sonarr instance in Prowlarr's Apps settings. No manual Torznab configuration required!
 
-Get torrent indexers Jackett proxy URLs by clicking `Copy Torznab Feed` in Jackett Web UI. Use the global Jackett API key as authentication.
+Simply configure your indexers once in Prowlarr, and they'll automatically appear in Sonarr with the correct settings.
 
-![Jackett indexers](img/jackett_indexers.png)
+![Prowlarr Apps](img/prowlarr_apps.png)
 
 ![Sonarr torznab add](img/sonarr_torznab.png)
 
@@ -662,11 +672,11 @@ In `Profiles` you can set new quality profiles, default ones are fairly good. Th
 As for Sonarr, the `Indexers` section is where you'll configure your torrent and nzb sources.
 
 Nowadays a lot of Usenet indexers are relying on Newznab protocol: fill-in the URL and API key you are using. You can find some indexers on this [subreddit wiki](https://www.reddit.com/r/usenet/wiki/indexers). It's nice to use several ones since there are quite volatile. You can find suggestions on Radarr Newznab presets. Some of these indexers provide free accounts with a limited number of API calls, you'll have to pay to get more. Usenet-crawler is one of the best free indexers out there.
-For torrents indexers, I activate Torznab custom indexers that point to my local Jackett service. This allows searches across all torrent indexers configured in Jackett. You have to configure them one by one though.
+For torrent indexers, Prowlarr automatically syncs all configured indexers to Radarr once you add your Radarr instance in Prowlarr's Apps settings. No manual Torznab configuration required!
 
-Get torrent indexers Jackett proxy URLs by clicking `Copy Torznab Feed`. Use the global Jackett API key as authentication.
+Simply configure your indexers once in Prowlarr, and they'll automatically appear in Radarr with the correct settings.
 
-![Jackett indexers](img/jackett_indexers.png)
+![Prowlarr Apps](img/prowlarr_apps.png)
 
 ![Sonarr torznab add](img/sonarr_torznab.png)
 
@@ -773,6 +783,55 @@ The next step is connecting to Radarr and the process should be identical. The o
 
 If you have any problems, check out the [wiki page](https://github.com/morpheus65535/bazarr/wiki/First-time-installation-configuration) for Bazarr and you should probably find your answer.
 
+### Setup Overseerr
+
+[Overseerr](https://overseerr.dev/) is a request management and media discovery tool that provides a clean, user-friendly interface for requesting movies and TV shows. It integrates seamlessly with Plex, Sonarr, and Radarr to create a Netflix-like browsing experience for your users.
+
+#### Overseerr Docker container
+
+We'll use the LinuxServer.io Overseerr image, which follows the same patterns as our other containers:
+
+```yaml
+overseerr:
+  container_name: overseerr
+  image: linuxserver/overseerr:latest
+  restart: unless-stopped
+  network_mode: host
+  environment:
+    - PUID=${PUID} # default user id, defined in .env
+    - PGID=${PGID} # default group id, defined in .env
+    - TZ=${TZ} # timezone, defined in .env
+  volumes:
+    - ${ROOT}/config/overseerr:/config # config files
+```
+
+Start the container with `docker-compose up -d overseerr`.
+
+#### Overseerr Configuration
+
+Overseerr's web UI is available on port 5055. Navigate to `localhost:5055` (replace `localhost` with your server's IP if needed).
+
+![Overseerr Setup](img/overseerr_setup.png)
+
+The initial setup wizard will guide you through:
+
+1. **Plex Configuration**: Connect to your Plex server using your Plex account. Overseerr will automatically discover your Plex libraries.
+
+2. **Services Setup**: Configure connections to Sonarr and Radarr:
+   - **Sonarr**: Enter your Sonarr URL (`http://localhost:8989`) and API key (found in Sonarr Settings → General → Security)
+   - **Radarr**: Enter your Radarr URL (`http://localhost:7878`) and API key (found in Radarr Settings → General → Security)
+
+3. **User Management**: Set up user permissions and request quotas. You can allow users to automatically approve their own requests or require admin approval.
+
+Once configured, users can:
+- Browse trending and popular movies/TV shows
+- Search for content using the clean, Netflix-like interface
+- Request new content that will automatically be sent to Sonarr/Radarr
+- Track the status of their requests
+- Manage their watchlists
+
+Overseerr will sync with your existing Plex libraries to show what content is already available, preventing duplicate requests.
+
 ## Manage it all from your mobile
 
 On Android, I'm using [nzb360](http://nzb360.com) to manage NZBGet, Deluge, Sonarr and Radarr.
@@ -786,7 +845,7 @@ The free version does not allow you to add new shows. Consider switching to the 
 
 Some stuff worth looking at that I do not use at the moment:
 
-- [NZBHydra](https://github.com/theotherp/nzbhydra): meta search for NZB indexers (like [Jackett](https://github.com/Jackett/Jackett) does for torrents). Could simplify and centralise nzb indexers configuration at a single place.
+- [NZBHydra](https://github.com/theotherp/nzbhydra): meta search for NZB indexers. Note that Prowlarr now handles both torrent and usenet indexers, making NZBHydra less necessary for most setups.
 - [Organizr](https://github.com/causefx/Organizr): Embed all these services in a single webpage with tab-based navigation
 - [Plex sharing features](https://www.plex.tv/features/#feat-modal)
 - [Headphones](https://github.com/rembo10/headphones): Automated music download. Like Sonarr but for music albums. I've been using it for a while, but it did not give me satisfying results. I also tend to rely entirely on a Spotify premium account to manage my music collection now.

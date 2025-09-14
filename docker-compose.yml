@@ -1,88 +1,289 @@
-version: "3.4"
 services:
   deluge:
     container_name: deluge
     image: linuxserver/deluge:latest
     restart: unless-stopped
-    network_mode: host
     environment:
       - PUID=${PUID} # default user id, defined in .env
       - PGID=${PGID} # default group id, defined in .env
       - TZ=${TZ} # timezone, defined in .env
-    volumes:
-      - ${ROOT}/downloads:/downloads # downloads folder
-      - ${ROOT}/config/deluge:/config # config files
-
-  jackett:
-    container_name: jackett
-    image: linuxserver/jackett:latest
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      - PUID=${PUID} # default user id, defined in .env
-      - PGID=${PGID} # default group id, defined in .env
-      - TZ=${TZ} # timezone, defined in .env
+      - UMASK_SET=022 # file permission mask
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ${ROOT}/downloads/torrent-blackhole:/downloads # place where to put .torrent files for manual download
-      - ${ROOT}/config/jackett:/config # config files
+      - ${ROOT}/downloads:/downloads # downloads folder
+      - ${ROOT}/config/deluge:/config # config files
+    networks:
+      - backend
+      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8112"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.deluge.rule=PathPrefix(`/deluge`)"
+      - "traefik.http.routers.deluge.entrypoints=web"
+      - "traefik.http.services.deluge.loadbalancer.server.port=8112"
+      - "traefik.http.middlewares.deluge-stripprefix.stripprefix.prefixes=/deluge"
+      - "traefik.http.routers.deluge.middlewares=deluge-stripprefix"
+
+  prowlarr:
+    container_name: prowlarr
+    image: linuxserver/prowlarr:latest
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+      - UMASK_SET=022 # file permission mask
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${ROOT}/config/prowlarr:/config # config files
+    networks:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9696"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prowlarr.rule=PathPrefix(`/prowlarr`)"
+      - "traefik.http.routers.prowlarr.entrypoints=web"
+      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+      - "traefik.http.middlewares.prowlarr-stripprefix.stripprefix.prefixes=/prowlarr"
+      - "traefik.http.routers.prowlarr.middlewares=prowlarr-stripprefix"
 
   sonarr:
     container_name: sonarr
     image: linuxserver/sonarr:latest
     restart: unless-stopped
-    network_mode: host
     environment:
       - PUID=${PUID} # default user id, defined in .env
       - PGID=${PGID} # default group id, defined in .env
       - TZ=${TZ} # timezone, defined in .env
+      - UMASK_SET=022 # file permission mask
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${ROOT}/config/sonarr:/config # config files
       - ${ROOT}/complete/tv:/tv # tv shows folder
       - ${ROOT}/downloads:/downloads # download folder
+    networks:
+      - frontend
+      - backend
+      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarr.rule=PathPrefix(`/sonarr`)"
+      - "traefik.http.routers.sonarr.entrypoints=web"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+      - "traefik.http.middlewares.sonarr-stripprefix.stripprefix.prefixes=/sonarr"
+      - "traefik.http.routers.sonarr.middlewares=sonarr-stripprefix"
 
   radarr:
     container_name: radarr
     image: linuxserver/radarr:latest
     restart: unless-stopped
-    network_mode: host
     environment:
       - PUID=${PUID} # default user id, defined in .env
       - PGID=${PGID} # default group id, defined in .env
       - TZ=${TZ} # timezone, defined in .env
+      - UMASK_SET=022 # file permission mask
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${ROOT}/config/radarr:/config # config files
       - ${ROOT}/complete/movies:/movies # movies folder
       - ${ROOT}/downloads:/downloads # download folder
+    networks:
+      - frontend
+      - backend
+      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7878"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.radarr.rule=PathPrefix(`/radarr`)"
+      - "traefik.http.routers.radarr.entrypoints=web"
+      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+      - "traefik.http.middlewares.radarr-stripprefix.stripprefix.prefixes=/radarr"
+      - "traefik.http.routers.radarr.middlewares=radarr-stripprefix"
 
   plex-server:
     container_name: plex-server
     image: linuxserver/plex:latest
     restart: unless-stopped
+    network_mode: host
     environment:
       - PUID=${PUID} # default user id, defined in .env
       - PGID=${PGID} # default group id, defined in .env
       - TZ=${TZ} # timezone, defined in .env
       - VERSION=docker
-    network_mode: host
+      - UMASK_SET=022 # file permission mask
     volumes:
+      - /etc/localtime:/etc/localtime:ro
       - ${ROOT}/config/plex/db:/config # plex database
       - ${ROOT}/config/plex/transcode:/transcode # temp transcoded files
       - ${ROOT}/complete:/data # media library
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:32400/web"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
 
   bazarr:
     container_name: bazarr
-    image: linuxserver/bazarr
+    image: linuxserver/bazarr:latest
     restart: unless-stopped
-    network_mode: host
     environment:
       - PUID=${PUID} # default user id, defined in .env
       - PGID=${PGID} # default group id, defined in .env
       - TZ=${TZ} # timezone, defined in .env
-      - UMASK_SET=022 #optional
+      - UMASK_SET=022 # file permission mask
     volumes:
+      - /etc/localtime:/etc/localtime:ro
       - ${ROOT}/config/bazarr:/config # config files
       - ${ROOT}/complete/movies:/movies # movies folder
       - ${ROOT}/complete/tv:/tv # tv shows folder
+    networks:
+      - frontend
+      - backend
+      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6767"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bazarr.rule=PathPrefix(`/bazarr`)"
+      - "traefik.http.routers.bazarr.entrypoints=web"
+      - "traefik.http.services.bazarr.loadbalancer.server.port=6767"
+      - "traefik.http.middlewares.bazarr-stripprefix.stripprefix.prefixes=/bazarr"
+      - "traefik.http.routers.bazarr.middlewares=bazarr-stripprefix"
+
+  overseerr:
+    container_name: overseerr
+    image: linuxserver/overseerr:latest
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID} # default user id, defined in .env
+      - PGID=${PGID} # default group id, defined in .env
+      - TZ=${TZ} # timezone, defined in .env
+      - UMASK_SET=022 # file permission mask
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${ROOT}/config/overseerr:/config # config files
+    networks:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5055"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.overseerr.rule=PathPrefix(`/overseerr`)"
+      - "traefik.http.routers.overseerr.entrypoints=web"
+      - "traefik.http.services.overseerr.loadbalancer.server.port=5055"
+      - "traefik.http.middlewares.overseerr-stripprefix.stripprefix.prefixes=/overseerr"
+      - "traefik.http.routers.overseerr.middlewares=overseerr-stripprefix"
+
+  # Docker Socket Proxy for enhanced security
+  dockerproxy:
+    container_name: dockerproxy
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1 # Allow access to container info
+      - IMAGES=1 # Allow access to image info
+      - NETWORKS=1 # Allow access to network info
+      - VOLUMES=1 # Allow access to volume info
+      - SERVICES=0 # Disable service info
+      - TASKS=0 # Disable task info
+      - POST=0 # Disable POST requests
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # read-only Docker daemon access
+    networks:
+      - socket_proxy
+
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ} # timezone, defined in .env
+      - WATCHTOWER_CLEANUP=true # remove old images after update
+      - WATCHTOWER_SCHEDULE=0 2 * * * # run at 2 AM daily
+      - WATCHTOWER_INCLUDE_RESTARTING=true # update containers that are restarting
+      - WATCHTOWER_INCLUDE_STOPPED=false # don't update stopped containers
+      - DOCKER_HOST=tcp://dockerproxy:2375 # use Docker Socket Proxy
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - socket_proxy
+
+  # Traefik reverse proxy
+  traefik:
+    container_name: traefik
+    image: traefik:v3.1
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=tcp://dockerproxy:2375"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "8080:8080" # Traefik dashboard
+    environment:
+      - TZ=${TZ} # timezone, defined in .env
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${ROOT}/config/traefik:/etc/traefik # traefik config
+    networks:
+      - frontend
+      - socket_proxy
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
+
+# Define custom networks
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  media:
+    driver: bridge
+  socket_proxy:
+    driver: bridge
