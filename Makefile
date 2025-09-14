@@ -1,6 +1,9 @@
 # Deployment and management targets
 .PHONY: setup deploy update status logs clean help
 
+# Docker Compose command (supports both docker-compose and docker compose)
+DOCKER_COMPOSE = ./docker-compose-wrapper.sh
+
 # Default target
 help:
 	@echo "HTPC Download Box - Available commands:"
@@ -35,9 +38,9 @@ deploy:
 # Update all containers
 update:
 	@echo "Updating HTPC Download Box..."
-	docker-compose down
-	docker-compose pull
-	docker-compose up -d
+	$(DOCKER_COMPOSE) down
+	$(DOCKER_COMPOSE) pull
+	$(DOCKER_COMPOSE) up -d
 	@echo "Cleaning up unused images..."
 	docker image prune -f
 	@echo "Update complete!"
@@ -45,17 +48,17 @@ update:
 # Show container status
 status:
 	@echo "Container Status:"
-	@docker-compose ps
+	@$(DOCKER_COMPOSE) ps
 
 # Show logs
 logs:
 	@echo "Showing logs from all containers (Ctrl+C to exit):"
-	docker-compose logs -f
+	$(DOCKER_COMPOSE) logs -f
 
 # Clean up everything
 clean:
 	@echo "Stopping all containers and cleaning up..."
-	docker-compose down
+	$(DOCKER_COMPOSE) down
 	@echo "Removing unused Docker resources..."
 	docker system prune -f
 	@echo "Cleanup complete!"
@@ -63,64 +66,64 @@ clean:
 # Restart all containers
 restart:
 	@echo "Restarting all containers..."
-	docker-compose restart
+	$(DOCKER_COMPOSE) restart
 	@echo "Restart complete!"
 
 # Service-specific log commands
 logs-deluge:
-	docker-compose logs -f deluge
+	$(DOCKER_COMPOSE) logs -f deluge
 
 logs-prowlarr:
-	docker-compose logs -f prowlarr
+	$(DOCKER_COMPOSE) logs -f prowlarr
 
 logs-sonarr:
-	docker-compose logs -f sonarr
+	$(DOCKER_COMPOSE) logs -f sonarr
 
 logs-radarr:
-	docker-compose logs -f radarr
+	$(DOCKER_COMPOSE) logs -f radarr
 
 logs-plex:
-	docker-compose logs -f plex-server
+	$(DOCKER_COMPOSE) logs -f plex-server
 
 logs-bazarr:
-	docker-compose logs -f bazarr
+	$(DOCKER_COMPOSE) logs -f bazarr
 
 logs-overseerr:
-	docker-compose logs -f overseerr
+	$(DOCKER_COMPOSE) logs -f overseerr
 
 logs-traefik:
-	docker-compose logs -f traefik
+	$(DOCKER_COMPOSE) logs -f traefik
 
 logs-dockerproxy:
-	docker-compose logs -f dockerproxy
+	$(DOCKER_COMPOSE) logs -f dockerproxy
 
 # Service-specific restart commands
 restart-deluge:
-	docker-compose restart deluge
+	$(DOCKER_COMPOSE) restart deluge
 
 restart-prowlarr:
-	docker-compose restart prowlarr
+	$(DOCKER_COMPOSE) restart prowlarr
 
 restart-sonarr:
-	docker-compose restart sonarr
+	$(DOCKER_COMPOSE) restart sonarr
 
 restart-radarr:
-	docker-compose restart radarr
+	$(DOCKER_COMPOSE) restart radarr
 
 restart-plex:
-	docker-compose restart plex-server
+	$(DOCKER_COMPOSE) restart plex-server
 
 restart-bazarr:
-	docker-compose restart bazarr
+	$(DOCKER_COMPOSE) restart bazarr
 
 restart-overseerr:
-	docker-compose restart overseerr
+	$(DOCKER_COMPOSE) restart overseerr
 
 restart-traefik:
-	docker-compose restart traefik
+	$(DOCKER_COMPOSE) restart traefik
 
 restart-dockerproxy:
-	docker-compose restart dockerproxy
+	$(DOCKER_COMPOSE) restart dockerproxy
 
 # Legacy support
 plex-update: update
