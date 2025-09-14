@@ -205,9 +205,7 @@ services:
       - "traefik.http.routers.overseerr.entrypoints=web"
       - "traefik.http.services.overseerr.loadbalancer.server.port=5055"
       - "traefik.http.middlewares.overseerr-stripprefix.stripprefix.prefixes=/overseerr"
-      - "traefik.http.middlewares.overseerr-redirect.redirectregex.regex=^(.*)/setup$$"
-      - "traefik.http.middlewares.overseerr-redirect.redirectregex.replacement=$${1}/overseerr/setup"
-      - "traefik.http.routers.overseerr.middlewares=overseerr-stripprefix,overseerr-redirect"
+      - "traefik.http.routers.overseerr.middlewares=overseerr-stripprefix"
 
   # Docker Socket Proxy for enhanced security
   dockerproxy:
