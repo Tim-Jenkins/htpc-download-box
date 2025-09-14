@@ -40,8 +40,8 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    print_error "Docker Compose is not installed. Please install Docker Compose first."
+if ! docker compose version &> /dev/null; then
+    print_error "Docker Compose v2 is not installed. Please install Docker Compose v2 first."
     exit 1
 fi
 
@@ -112,19 +112,9 @@ else
     sudo chown -R ${PUID}:${PGID} ${ROOT}
 fi
 
-# Determine which docker compose command to use
-if command -v docker-compose &> /dev/null; then
-    DOCKER_COMPOSE="docker-compose"
-elif docker compose version &> /dev/null; then
-    DOCKER_COMPOSE="docker compose"
-else
-    print_error "Neither docker-compose nor docker compose found"
-    exit 1
-fi
-
 # Validate Docker Compose file
 print_status "Validating Docker Compose configuration..."
-$DOCKER_COMPOSE config > /dev/null
+docker compose config > /dev/null
 if [ $? -eq 0 ]; then
     print_success "Docker Compose configuration is valid"
 else
@@ -134,25 +124,25 @@ fi
 
 # Pull latest images
 print_status "Pulling latest Docker images..."
-$DOCKER_COMPOSE pull
+docker compose pull
 
 # Deploy stack
 print_status "Deploying HTPC Download Box stack..."
-$DOCKER_COMPOSE up -d
+docker compose up -d
 
 # Wait a moment for containers to start
 sleep 5
 
 # Show status
 print_status "Checking container status..."
-$DOCKER_COMPOSE ps
+docker compose ps
 
 # Check if all containers are running
-failed_containers=$($DOCKER_COMPOSE ps --services --filter "status=exited")
+failed_containers=$(docker compose ps --services --filter "status=exited")
 if [ -n "$failed_containers" ]; then
     print_error "Some containers failed to start:"
     echo "$failed_containers"
-    print_status "Check logs with: $DOCKER_COMPOSE logs [service-name]"
+    print_status "Check logs with: docker compose logs [service-name]"
 else
     print_success "All containers are running!"
 fi

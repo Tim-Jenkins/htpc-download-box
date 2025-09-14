@@ -1,8 +1,8 @@
 # Deployment and management targets
 .PHONY: setup deploy update status logs clean help
 
-# Docker Compose command (supports both docker-compose and docker compose)
-DOCKER_COMPOSE = ./docker-compose-wrapper.sh
+# Docker Compose command (v2 only)
+DOCKER_COMPOSE = docker compose
 
 # Default target
 help:
